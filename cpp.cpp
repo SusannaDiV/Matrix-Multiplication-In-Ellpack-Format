@@ -11,7 +11,7 @@ struct EllpackMatrix {
     uint64_t* indices;
 };
 
-EllpackMatrix* make_ellpack(uint64_t real_width, uint64_t height, uint64_t width, const char* file) {
+EllpackMatrix* make_ellpack(uint64_t real_width, uint64_t height, uint64_t width) {
     EllpackMatrix* ellpack = new EllpackMatrix();
     ellpack->real_width = real_width;
     ellpack->width = width;
@@ -20,96 +20,7 @@ EllpackMatrix* make_ellpack(uint64_t real_width, uint64_t height, uint64_t width
     ellpack->indices = new uint64_t[width * height];
     return ellpack;
 }
-
-void free_ellpack(EllpackMatrix* x) {
-    delete[] x->values;
-    delete[] x->indices;
-    delete x;
-}
-
-void free_all(std::vector<EllpackMatrix*>& matrices) {
-    for (auto matrix : matrices) {
-        free_ellpack(matrix);
-    }
-}
-
-uint64_t realwidth_ellpack(const EllpackMatrix* const x) {
-    uint64_t max_width = 0;
-    for (uint64_t i = 0; i < x->height; i++) {
-        uint64_t j = 0;
-        while (j < x->width && x->values[i * x->width + j] != 0.0) {
-            j++;
-        }
-        if (x->indices[i * x->width + --j] > max_width) {
-            max_width = x->indices[i * x->width + j];
-        }
-    }
-    return max_width + 1;
-}
-
-void flatten_ellpack(EllpackMatrix* x, float** values, uint64_t** indices, uint64_t* lengths) {
-    x->values = new float[x->height * x->width]();
-    x->indices = new uint64_t[x->height * x->width]();
-    if (x->values && x->indices) {
-        for (uint64_t x_row_i = 0; x_row_i < x->height; x_row_i++) {
-            memcpy(x->values + x_row_i * x->width, values[x_row_i], lengths[x_row_i] * sizeof(float));
-            memcpy(x->indices + x_row_i * x->width, indices[x_row_i], lengths[x_row_i] * sizeof(uint64_t));
-        }
-    }
-    for (uint64_t x_xow_i = 0; x_xow_i < x->height; x_xow_i++) {
-        delete[] values[x_xow_i];
-        delete[] indices[x_xow_i];
-    }
-    delete[] values;
-    delete[] indices;
-    delete[] lengths;
-}
-
-EllpackMatrix* transpose_ellpack(const EllpackMatrix* x) {
-    EllpackMatrix* r = new EllpackMatrix();
-    r->height = realwidth_ellpack(x);
-    r->width = 1;
-    float* r_row_values = new float[x->height]();
-    uint64_t* r_row_indices = new uint64_t[x->height]();
-
-    uint64_t* walker = new uint64_t[x->height](); // an index of the last read position in each row of x
-    float** r_values = new float*[r->height]();
-    uint64_t** r_indices = new uint64_t*[r->height]();
-    uint64_t* r_row_lengths = new uint64_t[r->height]();
-    uint64_t max_width = 0;
-
-    for (uint64_t r_row_i = 0; r_row_i < r->height; r_row_i++) {
-        uint64_t r_column_c = 0;
-        for (uint64_t x_row_i = 0; x_row_i < x->height; x_row_i++) {
-            if (walker[x_row_i] < x->width && x->indices[x_row_i * x->width + walker[x_row_i]] == r_row_i) {
-                r_row_values[r_column_c] = x->values[x_row_i * x->width + walker[x_row_i]];
-                r_row_indices[r_column_c] = x_row_i;
-                r_column_c++;
-                walker[x_row_i]++;
-            }
-        }
-        if (r_column_c > max_width) {
-            max_width = r_column_c;
-        }
-        r_values[r_row_i] = new float[r_column_c]();
-        r_indices[r_row_i] = new uint64_t[r_column_c]();
-        if (!r_values[r_row_i] || !r_indices[r_row_i]) {
-            r->height = r_row_i + 1;
-            break;
-        }
-        memcpy(r_values[r_row_i], r_row_values, r_column_c * sizeof(float));
-        memcpy(r_indices[r_row_i], r_row_indices, r_column_c * sizeof(uint64_t));
-        r_row_lengths[r_row_i] = r_column_c;
-    }
-    r->width = max_width;
-    flatten_ellpack(r, r_values, r_indices, r_row_lengths);
-    delete[] walker;
-    delete[] r_row_values;
-    delete[] r_row_indices;
-    return r;
-}
-
-void matr_mult_ellpack(const void* a, const void* b, void* result) {
+void matr_mult_ellpack(EllpackMatrix* a, const std::vector<double>& b, EllpackMatrix* result) {
     EllpackMatrix* r = static_cast<EllpackMatrix*>(result);
     const EllpackMatrix* ax = static_cast<const EllpackMatrix*>(a);
     r->height = ax->height;
@@ -124,27 +35,23 @@ void matr_mult_ellpack(const void* a, const void* b, void* result) {
         r->height = 0;
     }
 
-    EllpackMatrix* bx = transpose_ellpack(static_cast<const EllpackMatrix*>(b));
+    // Transpose vector b
+    float* bx_values = new float[ax->width]();
+    for (size_t i = 0; i < b.size(); ++i) {
+        bx_values[i] = b[i];
+    }
+
     for (uint64_t r_row_i = 0; r_row_i < r->height; r_row_i++) {
         uint64_t r_column_counter = 0;
-        uint64_t a_column_i = 0;
-        uint64_t b_column_i = 0;
         float res_sum = 0.0F;
 
-        while (a_column_i < ax->width && b_column_i < bx->width) {
-            if (ax->indices[r_row_i * ax->width + a_column_i] == bx->indices[b_column_i]) {
-                res_sum += ax->values[r_row_i * ax->width + a_column_i] * bx->values[b_column_i];
-                a_column_i++;
-                b_column_i++;
-            } else if (ax->indices[r_row_i * ax->width + a_column_i] > bx->indices[b_column_i]) {
-                b_column_i++;
-            } else {
-                a_column_i++;
-            }
+        for (uint64_t a_column_i = 0; a_column_i < ax->width; a_column_i++) {
+            res_sum += ax->values[r_row_i * ax->width + a_column_i] * bx_values[a_column_i];
         }
 
         if (res_sum != 0.0) {
             r_row_values[r_column_counter] = res_sum;
+            r_row_indices[r_column_counter] = r_row_i;
             r_column_counter++;
         }
 
@@ -166,11 +73,38 @@ void matr_mult_ellpack(const void* a, const void* b, void* result) {
     }
 
     r->width = max_width;
-    flatten_ellpack(r, r_values, r_indices, r_row_lengths);
+    r->values = new float[r->height * r->width]();
+    r->indices = new uint64_t[r->height * r->width]();
+    if (r->values && r->indices) {
+        for (uint64_t x_row_i = 0; x_row_i < r->height; x_row_i++) {
+            memcpy(r->values + x_row_i * r->width,r_values[x_row_i], r_row_lengths[x_row_i] * sizeof(float));
+            memcpy(r->indices + x_row_i * r->width,r_indices[x_row_i], r_row_lengths[x_row_i] * sizeof(uint64_t));
+        }
+    }
+    for (uint64_t x_xow_i = 0; x_xow_i < r->height; x_xow_i++) {
+        delete[]r_values[x_xow_i];
+        delete[]r_indices[x_xow_i];
+    }
+    delete[]r_values;
+    delete[]r_indices;
     delete[] r_row_values;
     delete[] r_row_indices;
-    delete bx;
+    delete[] bx_values;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #define CSV_LINE_LENGTH 61
 
@@ -244,9 +178,9 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
     }
 
     printf("[SCAN] Completed, Shrinking matrix width from %lu -> %lu\n", width, max_width);
-    printf("[INIT] Allocating %lu bytes of memory for matrix %s\n", (4 * max_width * height) + (8 * max_width * height), matrix_path);
+    printf("[INIT] Allocating %lu bytes of memory for matrix \n", (4 * max_width * height) + (8 * max_width * height));
 
-    EllpackMatrix* matrix = make_ellpack(static_cast<uint64_t>(width), static_cast<uint64_t>(height), max_width, matrix_path);
+    EllpackMatrix* matrix = make_ellpack(static_cast<uint64_t>(width), static_cast<uint64_t>(height), max_width);
 
     for (uint64_t run_row = 0; run_row < matrix->height; ++run_row) {
         for (uint64_t run_col = 0; run_col < matrix->width; ++run_col) {
@@ -255,7 +189,7 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
         }
     }
 
-    printf("[INIT] Reading data of matrix %s into memory\n", matrix_path);
+
 
     // Go to start of file (after height and width declarations)
     matrix_file.clear();
@@ -322,22 +256,19 @@ void write_matrix(EllpackMatrix* matrix, const char* out_path) {
 }
 
 int main(int argc, char** argv) {
-    std::vector<EllpackMatrix*> matrices;
-
     EllpackMatrix* amatrix = parse_matrix("a.mat");
-    matrices.push_back(amatrix);
-
-    EllpackMatrix* bmatrix = parse_matrix("b.mat");
-    matrices.push_back(bmatrix);
-
+    std::vector<double > bvector = {4.0, 5.0, 3.0};
     EllpackMatrix* result = new EllpackMatrix();
-    matr_mult_ellpack(amatrix, bmatrix, result);
-    matrices.push_back(result);
+    matr_mult_ellpack(amatrix, bvector, result);
 
     write_matrix(result, "out1.mat");
 
     std::cout << "[FREE] Freeing used memory ...\n";
-    free_all(matrices);
-
+    delete[] amatrix->values;
+    delete[] amatrix->indices;
+    delete amatrix;
+    delete[] result->values;
+    delete[] result->indices;
+    delete result;
     return 0;
 }
