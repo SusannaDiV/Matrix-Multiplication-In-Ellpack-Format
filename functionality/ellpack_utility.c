@@ -9,9 +9,6 @@ struct EllpackMatrix* make_ellpack(u_int64_t real_width, u_int64_t height, u_int
     ellpack->height = height;
     ellpack->values = malloc(sizeof(float) * width * height);
     ellpack->indices = malloc(sizeof(u_int64_t) * width * height);
-    if(!ellpack->values || !ellpack->indices) {
-        error(1, 0, "Error: Not enough memory to load matrix %s", file);
-    }
     return ellpack;
 }
 
@@ -27,34 +24,9 @@ void free_all(struct EllpackMatrix *matrices[], int n) {
     }
 }
 
-int valid_ellpack(const struct EllpackMatrix *x) {
-    return x && x -> values && x -> indices;
-}
-
-void print_ellpack(FILE *output, struct EllpackMatrix* ellpack_matrix, char* name) {
-    fprintf(output, "---- MATRIX %s ----\n\n", name);
-    fprintf(output, "---- Indices ----\n");
-    for (u_int64_t row = 0; row < ellpack_matrix->height; ++row) {
-        for (u_int64_t col = 0; col < ellpack_matrix->width; ++col) {
-            fprintf(output, "| %lu ", ellpack_matrix->indices[row * ellpack_matrix->width + col]);
-        }
-        fprintf(output, "|\n");
-    }
-    fprintf(output, "\n---- Values ----\n");
-    for (u_int64_t row = 0; row < ellpack_matrix->height; ++row) {
-        for (u_int64_t col = 0; col < ellpack_matrix->width; ++col) {
-            fprintf(output, "| %f ", ellpack_matrix->values[row * ellpack_matrix->width + col]);
-        }
-        fprintf(output, "|\n");
-    }
-    fprintf(output, "\n---- END MATRIX ----\n");
-}
 
 u_int64_t realwidth_ellpack(const struct EllpackMatrix * const x) {
-    if (!valid_ellpack(x)) {
-        error(1, 0, "Error: argument matrix has wrong format");
-        return -1;
-    }
+
     // go through each row to the last right index and find the largest of them
     u_int64_t max_width = 0;
     for (u_int64_t i = 0; i < x->height; i++) {
@@ -88,18 +60,11 @@ void flatten_ellpack(struct EllpackMatrix *x, float **values, u_int64_t **indice
 }
 
 struct EllpackMatrix *transpose_ellpack(const struct EllpackMatrix * x) {
-    if (!valid_ellpack(x)) {
-        error(1, 0, "the argument matrix has wrong format");
-        return NULL;
-    }
+
     // create r as x transposed in ellpack directly
     // for each row of r search the corresponding column indices in x
     // store only the row numbers where the current transposed column was found
     struct EllpackMatrix *r = malloc(sizeof(*r));
-    if (r == NULL) {
-        error(1, 0, "allocation failed for result matrix");
-        return NULL;
-    }
     u_int64_t *walker = calloc(x->height, sizeof(u_int64_t)); // an index of the last read position in each row of x
     // temporary arrays to store each new row of r with the least size
     r->height = realwidth_ellpack(x);
@@ -143,20 +108,5 @@ struct EllpackMatrix *transpose_ellpack(const struct EllpackMatrix * x) {
     free(walker);
     free(r_row_values);
     free(r_row_indices);
-    if (!r->values || !r->indices) {
-        free_ellpack(r);
-        r = NULL;
-        error(1, 0, "an allocation has failed");
-    }
     return r;
-}
-
-// From: https://stackoverflow.com/a/35270026
-// "Fastest way to do horizontal SSE vector sum (or other reduction)"
-float hsum_ps_sse1(__m128 v) {                                  // v = [ D C | B A ]
-    __m128 shuf   = _mm_shuffle_ps(v, v, _MM_SHUFFLE(2, 3, 0, 1));  // [ C D | A B ]
-    __m128 sums   = _mm_add_ps(v, shuf);      // sums = [ D+C C+D | B+A A+B ]
-    shuf          = _mm_movehl_ps(shuf, sums);      //  [   C   D | D+C C+D ]  // let the compiler avoid a mov by reusing shuf
-    sums          = _mm_add_ss(sums, shuf);
-    return    _mm_cvtss_f32(sums);
 }

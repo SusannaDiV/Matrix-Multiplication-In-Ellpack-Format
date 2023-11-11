@@ -29,12 +29,6 @@ void free_ellpack(struct EllpackMatrix *x);
 /** deallocates a given array of matrices */
 void free_all(struct EllpackMatrix *matrices[], int n);
 
-/** checks whether the struct and the representation matrices are allocated */
-int valid_ellpack(const struct EllpackMatrix *x);
-
-/** prints a named matrix to the given file */
-void print_ellpack(FILE *output, struct EllpackMatrix *ellpack_matrix, char* name);
-
 /** finds the number of the rightmost column with non zero entries - the width of the narrowest real matrix */
 u_int64_t realwidth_ellpack(const struct EllpackMatrix *x);
 
@@ -43,8 +37,5 @@ void flatten_ellpack(struct EllpackMatrix *x, float **values, u_int64_t **indice
 
 /** creates and returns a the transpose of the matrix in ellpack format */
 struct EllpackMatrix *transpose_ellpack(const struct EllpackMatrix * x);
-
-/** adds the fours floats in a 128 bit register */
-float hsum_ps_sse1(__m128 v);
 
 #endif

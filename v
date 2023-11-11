@@ -1,3 +1,9 @@
+0;0;3.100000000e+01
+2;0;4.750000000e+01
+3;0;5.290000153e+01
+4;0;1.032000065e+01
+
+
 #include "multiplication.h"
 #include <string.h>
 #include "ellpack_utility.h"
@@ -14,17 +20,18 @@ void matr_mult_ellpack(const void* a, const void* b, void* result) {
     float **r_values = calloc(ax->height, sizeof(float *));
     u_int64_t **r_indices = calloc(ax->height, sizeof(u_int64_t *));
     u_int64_t *r_row_lengths = calloc(ax->height, sizeof(u_int64_t));
-    float *r_row_values = calloc(ax->height, sizeof(float));
-    u_int64_t *r_row_indices = calloc(ax->height, sizeof(u_int64_t));
     u_int64_t max_width = 0;
         // array of upper limit size for each result row
     if (!r_values || !r_indices || !r_row_lengths) {
         r->height = 0; // skip all loops and go to cleanup
     }
 
-    struct EllpackMatrix *bx = transpose_ellpack((struct EllpackMatrix *) b);
-
+        struct EllpackMatrix *bx = transpose_ellpack((struct EllpackMatrix *) b);
+    float *r_row_values = calloc(bx->height, sizeof(float));
+    u_int64_t *r_row_indices = calloc(bx->height, sizeof(u_int64_t));
+    
     for (u_int64_t r_row_i = 0; r_row_i < r->height; r_row_i++) { // Zeileniteration
+        
         
         
         u_int64_t r_column_counter = 0; // only not null results are written to result row, to mantain ellpack form
