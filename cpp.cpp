@@ -26,118 +26,6 @@ void free_ellpack(EllpackMatrix* x) {
     delete[] x->indices;
     delete x;
 }
-
-uint64_t realwidth_ellpack(const EllpackMatrix* const x) {
-    uint64_t max_width = 0;
-    for (uint64_t i = 0; i < x->height; i++) {
-        uint64_t j = 0;
-        while (j < x->width && x->values[i * x->width + j] != 0.0) {
-            j++;
-        }
-        if (x->indices[i * x->width + --j] > max_width) {
-            max_width = x->indices[i * x->width + j];
-        }
-    }
-    return max_width + 1;
-}
-
-void flatten_ellpack(EllpackMatrix* x, float** values, uint64_t** indices, uint64_t* lengths) {
-    x->values = new float[x->height * x->width]();
-    x->indices = new uint64_t[x->height * x->width]();
-    if (x->values && x->indices) {
-        for (uint64_t x_row_i = 0; x_row_i < x->height; x_row_i++) {
-            memcpy(x->values + x_row_i * x->width, values[x_row_i], lengths[x_row_i] * sizeof(float));
-            memcpy(x->indices + x_row_i * x->width, indices[x_row_i], lengths[x_row_i] * sizeof(uint64_t));
-        }
-    }
-    for (uint64_t x_xow_i = 0; x_xow_i < x->height; x_xow_i++) {
-        delete[] values[x_xow_i];
-        delete[] indices[x_xow_i];
-    }
-    delete[] values;
-    delete[] indices;
-    delete[] lengths;
-}
-
-EllpackMatrix* transpose_ellpack(const EllpackMatrix* x) {
-    EllpackMatrix* r = new EllpackMatrix();
-    r->height = realwidth_ellpack(x);
-    r->width = 1;
-    float* r_row_values = new float[x->height]();
-    uint64_t* r_row_indices = new uint64_t[x->height]();
-
-    uint64_t* walker = new uint64_t[x->height](); // an index of the last read position in each row of x
-    float** r_values = new float*[r->height]();
-    uint64_t** r_indices = new uint64_t*[r->height]();
-    uint64_t* r_row_lengths = new uint64_t[r->height]();
-    uint64_t max_width = 0;
-
-    for (uint64_t r_row_i = 0; r_row_i < r->height; r_row_i++) {
-        uint64_t r_column_c = 0;
-        for (uint64_t x_row_i = 0; x_row_i < x->height; x_row_i++) {
-            if (walker[x_row_i] < x->width && x->indices[x_row_i * x->width + walker[x_row_i]] == r_row_i) {
-                r_row_values[r_column_c] = x->values[x_row_i * x->width + walker[x_row_i]];
-                r_row_indices[r_column_c] = x_row_i;
-                r_column_c++;
-                walker[x_row_i]++;
-            }
-        }
-        if (r_column_c > max_width) {
-            max_width = r_column_c;
-        }
-        r_values[r_row_i] = new float[r_column_c]();
-        r_indices[r_row_i] = new uint64_t[r_column_c]();
-        if (!r_values[r_row_i] || !r_indices[r_row_i]) {
-            r->height = r_row_i + 1;
-            break;
-        }
-        memcpy(r_values[r_row_i], r_row_values, r_column_c * sizeof(float));
-        memcpy(r_indices[r_row_i], r_row_indices, r_column_c * sizeof(uint64_t));
-        r_row_lengths[r_row_i] = r_column_c;
-    }
-    r->width = max_width;
-    flatten_ellpack(r, r_values, r_indices, r_row_lengths);
-    delete[] walker;
-    delete[] r_row_values;
-    delete[] r_row_indices;
-    return r;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 void matr_mult_ellpack(const void* a, std::vector<double> &b, void* result) {
     EllpackMatrix* r = static_cast<EllpackMatrix*>(result);
     const EllpackMatrix* ax = static_cast<const EllpackMatrix*>(a);
@@ -195,7 +83,22 @@ void matr_mult_ellpack(const void* a, std::vector<double> &b, void* result) {
     }
 
     r->width = max_width;
-    flatten_ellpack(r, r_values, r_indices, r_row_lengths);
+
+    r->values = new float[r->height * r->width]();
+    r->indices = new uint64_t[r->height * r->width]();
+    if (r->values && r->indices) {
+        for (uint64_t x_row_i = 0; x_row_i < r->height; x_row_i++) {
+            memcpy(r->values + x_row_i * r->width, r_values[x_row_i], r_row_lengths[x_row_i] * sizeof(float));
+            memcpy(r->indices + x_row_i * r->width, r_indices[x_row_i], r_row_lengths[x_row_i] * sizeof(uint64_t));
+        }
+    }
+    for (uint64_t x_xow_i = 0; x_xow_i < r->height; x_xow_i++) {
+        delete[] r_values[x_xow_i];
+        delete[] r_indices[x_xow_i];
+    }
+    delete[] r_values;
+    delete[] r_indices;
+
     delete[] r_row_values;
     delete[] r_row_indices;
     
