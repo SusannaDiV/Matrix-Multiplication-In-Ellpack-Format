@@ -2,7 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
-#include <cstring>
+#include <algorithm>
 
 #define CSV_LINE_LENGTH 61
 
@@ -41,12 +41,13 @@ int main(int argc, char** argv) {
     }
     std::cout << "line count " << line_count << std::endl;
 
-
     uint64_t amatrix_max_width = 0;
     uint64_t amatrix_current_row = 0;
     uint64_t amatrix_count_used = 0;
 
-    
+    std::vector<std::vector<float>> amatrix_values(amatrix_height, std::vector<float>(amatrix_width, 0));
+    std::vector<std::vector<uint64_t>> amatrix_indices(amatrix_height, std::vector<uint64_t>(amatrix_width, 0));
+
     while (std::getline(amatrix_file, amatrix_line)) {
         std::istringstream token_stream(amatrix_line);
         std::string token;
@@ -71,8 +72,14 @@ int main(int argc, char** argv) {
     }
 
     printf("[SCAN] Completed, Shrinking matrix width from %lu -> %lu\n", amatrix_width, amatrix_max_width);
-    std::vector<float> amatrix_values(amatrix_width * amatrix_height, 0.0);
-    std::vector<uint64_t> amatrix_indices(amatrix_width * amatrix_height, 0);
+
+    // Initialize vectors
+    std::vector<float> amatrix_values_flat(amatrix_width * amatrix_height, 0);
+    std::vector<uint64_t> amatrix_indices_flat(amatrix_width * amatrix_height, 0);
+
+    printf("[INIT] Reading data of matrix a.mat into memory\n");
+
+    // Go to start of file (after height and width declarations)
     amatrix_file.clear();
     amatrix_file.seekg(0, std::ios::beg);
     int skr = skip_lines(amatrix_file, 2);
@@ -93,48 +100,51 @@ int main(int argc, char** argv) {
         bool col_found = false;
 
         for (uint64_t r_col = 0; r_col < amatrix_width; ++r_col) {
-            if (amatrix_values[amatrix_row * amatrix_width + r_col] == 0) {
+            if (amatrix_values_flat[amatrix_row * amatrix_width + r_col] == 0) {
                 new_col = r_col;
                 col_found = true;
                 break;
             }
         }
 
-        amatrix_values[amatrix_row * amatrix_width + new_col] = amatrix_value;
-        amatrix_indices[amatrix_row * amatrix_width + new_col] = amatrix_column;
+        amatrix_values_flat[amatrix_row * amatrix_width + new_col] = amatrix_value;
+        amatrix_indices_flat[amatrix_row * amatrix_width + new_col] = amatrix_column;
+    }
+
+    std::cout << "[PRINT] Content of amatrix_indices:\n";
+    for (uint64_t run_row = 0; run_row < amatrix_height; ++run_row) {
+        for (uint64_t run_col = 0; run_col < amatrix_width; ++run_col) {
+            std::cout << amatrix_indices_flat[run_row * amatrix_width + run_col] << " ";
+        }
+        std::cout << "\n";
     }
 
     std::vector<double> bvector = {4.3, 5.0, 3.0};
 
-    uint64_t result_height, result_width;
-    float* result_values;
-    uint64_t* result_indices;
-
-    result_height = amatrix_height;
-    float** r_values = new float*[amatrix_height]();
-    uint64_t** r_indices = new uint64_t*[amatrix_height]();
-    uint64_t* r_row_lengths = new uint64_t[amatrix_height]();
-    float* r_row_values = new float[amatrix_height]();
-    uint64_t* r_row_indices = new uint64_t[amatrix_height]();
+    std::vector<std::vector<float>> r_values(amatrix_height, std::vector<float>());
+    std::vector<std::vector<uint64_t>> r_indices(amatrix_height, std::vector<uint64_t>());
+    std::vector<uint64_t> r_row_lengths(amatrix_height, 0);
+    std::vector<float> r_row_values(amatrix_height, 0);
+    std::vector<uint64_t> r_row_indices(amatrix_height, 0);
     uint64_t max_width = 0;
 
-    if (!r_values || !r_indices || !r_row_lengths) {
-        result_height = 0;
+    if (r_values.empty() || r_indices.empty() || r_row_lengths.empty()) {
+        amatrix_height = 0;
     }
 
-#pragma omp parallel for default(none) shared(amatrix_width, amatrix_height, amatrix_values, amatrix_indices, bvector, r_values, r_indices, r_row_lengths, r_row_values, r_row_indices, result_height, max_width) schedule(static)
-    for (uint64_t r_row_i = 0; r_row_i < result_height; r_row_i++) {
+#pragma omp parallel for default(none) shared(amatrix_width, amatrix_height, amatrix_values_flat, amatrix_indices_flat, bvector, r_values, r_indices, r_row_lengths, r_row_values, r_row_indices, max_width) schedule(static)
+    for (uint64_t r_row_i = 0; r_row_i < amatrix_height; r_row_i++) {
         uint64_t r_column_counter = 0;
         uint64_t a_column_i = 0;
         uint64_t b_column_i = 0;
         float res_sum = 0.0F;
 
         while (a_column_i < amatrix_width && b_column_i < bvector.size()) {
-            if (amatrix_indices[r_row_i * amatrix_width + a_column_i] == b_column_i) {
-                res_sum += amatrix_values[r_row_i * amatrix_width + a_column_i] * bvector[b_column_i];
+            if (amatrix_indices_flat[r_row_i * amatrix_width + a_column_i] == b_column_i) {
+                res_sum += amatrix_values_flat[r_row_i * amatrix_width + a_column_i] * bvector[b_column_i];
                 a_column_i++;
                 b_column_i++;
-            } else if (amatrix_indices[r_row_i * amatrix_width + a_column_i] > b_column_i) {
+            } else if (amatrix_indices_flat[r_row_i * amatrix_width + a_column_i] > b_column_i) {
                 b_column_i++;
             } else {
                 a_column_i++;
@@ -158,31 +168,34 @@ int main(int argc, char** argv) {
 
         #pragma omp critical
         {
-            r_values[r_row_i] = new float[r_column_counter]();
-            r_indices[r_row_i] = new uint64_t[r_column_counter]();
-        }
-
-        #pragma omp critical
-        {
-            memcpy(r_values[r_row_i], r_row_values, sizeof(float) * r_column_counter);
-            memcpy(r_indices[r_row_i], r_row_indices, sizeof(uint64_t) * r_column_counter);
+            r_values[r_row_i].assign(r_row_values.begin(), r_row_values.begin() + r_column_counter);
+            r_indices[r_row_i].assign(r_row_indices.begin(), r_row_indices.begin() + r_column_counter);
             r_row_lengths[r_row_i] = r_column_counter;
         }
     }
 
-    result_width = max_width;
+    uint64_t result_height = amatrix_height;
 
-    result_values = new float[result_height * result_width]();
-    result_indices = new uint64_t[result_height * result_width]();
-    if (result_values && result_indices) {
+    std::vector<std::vector<float>> result_values(result_height, std::vector<float>(max_width, 0));
+    std::vector<std::vector<uint64_t>> result_indices(result_height, std::vector<uint64_t>(max_width, 0));
+
+    if (!result_values.empty() && !result_indices.empty()) {
         for (uint64_t x_row_i = 0; x_row_i < result_height; x_row_i++) {
-            memcpy(result_values + x_row_i * result_width, r_values[x_row_i], r_row_lengths[x_row_i] * sizeof(float));
-            memcpy(result_indices + x_row_i * result_width, r_indices[x_row_i], r_row_lengths[x_row_i] * sizeof(uint64_t));
+            auto values_dest = result_values[x_row_i].begin();
+            auto indices_dest = result_indices[x_row_i].begin();
+
+            std::copy(r_values[x_row_i].begin(), r_values[x_row_i].end(), values_dest);
+            std::copy(r_indices[x_row_i].begin(), r_indices[x_row_i].end(), indices_dest);
         }
     }
+
     printf("[FREE] Freeing used memory ...\n");
     for (int i = 0; i < result_height; ++i) {
-        std::cout << result_values[i] << std::endl;
+        for (int j = 0; j < max_width; ++j) {
+            std::cout << result_values[i][j] << " ";
+        }
+        std::cout << std::endl;
     }
+
     return 0;
 }
