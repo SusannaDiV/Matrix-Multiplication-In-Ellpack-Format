@@ -146,19 +146,11 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
     long width = 0;
     long height = 0;
 
-    while (std::getline(matrix_file, line)) {
-        if (line_count > 1) {
-            break;
-        } else if (line_count == 0) {
-            errno = 0;
-            height = std::strtol(line.c_str(), const_cast<char**>(&end_ptr), 10);
-        } else if (line_count == 1) {
-            errno = 0;
-            width = std::strtol(line.c_str(), const_cast<char**>(&end_ptr), 10);
-        }
-        ++line_count;
-    }
-
+    std::getline(matrix_file, line);
+    height = std::strtol(line.c_str(), const_cast<char**>(&end_ptr), 10);
+    std::getline(matrix_file, line);        
+    width = std::strtol(line.c_str(), const_cast<char**>(&end_ptr), 10);
+    
     printf("[SCAN] Scanning matrix %s ...\n", matrix_path);
 
     std::string matrix_line;
