@@ -187,7 +187,6 @@ int main(int argc, char** argv) {
     long amatrix_height = 0;
     long tot=0;
 
-
     while (std::getline(amatrix_file, amatrix_line)) {
         if (line_count > 1) {
             break;
@@ -202,10 +201,6 @@ int main(int argc, char** argv) {
         }
         ++line_count;
     }
-
-    printf("[SCAN] Scanning matrix a.mat ...\n");
-
-    line_count = 4;
 
     uint64_t amatrix_max_width = 0;
     uint64_t amatrix_current_row = 0;
@@ -228,7 +223,6 @@ int main(int argc, char** argv) {
         }
         
         ++amatrix_count_used;
-        ++line_count;
     }
 
     if (amatrix_max_width <= 0) {
@@ -253,7 +247,6 @@ int main(int argc, char** argv) {
     amatrix_file.clear();
     amatrix_file.seekg(0, std::ios::beg);
     int skr = skip_lines(amatrix_file, 2);
-    line_count = 3;
 
     while (std::getline(amatrix_file, amatrix_line)) {
         std::istringstream token_stream(amatrix_line);
@@ -280,8 +273,6 @@ int main(int argc, char** argv) {
 
         amatrix_values[amatrix_row * amatrix_width + new_col] = amatrix_value;
         amatrix_indices[amatrix_row * amatrix_width + new_col] = amatrix_column;
-
-        ++line_count;
     }
 /*
     for (uint64_t i = 0; i < amatrix_height; ++i) {
