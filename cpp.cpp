@@ -140,26 +140,14 @@ int skip_lines(std::ifstream& file, unsigned long long num) {
 
 EllpackMatrix* parse_matrix(const char* matrix_path) {
     std::ifstream matrix_file(matrix_path);
-    std::string line;
     unsigned long long line_count = 0;
     const char* end_ptr;
     long width = 0;
-    long height = 0;
+    long height,tot = 0;
 
-    while (std::getline(matrix_file, line)) {
-        if (line_count > 1) {
-            break;
-        } else if (line_count == 0) {
-            errno = 0;
-            height = std::strtol(line.c_str(), const_cast<char**>(&end_ptr), 10);
-        } else if (line_count == 1) {
-            errno = 0;
-            width = std::strtol(line.c_str(), const_cast<char**>(&end_ptr), 10);
-        }
-        ++line_count;
-    }
-
-    printf("[SCAN] Scanning matrix %s ...\n", matrix_path);
+    matrix_file >> height;
+    matrix_file >> width;
+    matrix_file >> tot;
 
     std::string matrix_line;
 
