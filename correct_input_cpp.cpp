@@ -84,17 +84,16 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
     printf("[SCAN] Completed, Shrinking matrix width from %lu -> %lu\n", input_width, current_max_width);
     printf("[INIT] Allocating %lu bytes of memory for matrix %s\n", (4 * current_max_width * input_height) + (8 * current_max_width * input_height), matrix_path);
 
-    EllpackMatrix* matrix = new EllpackMatrix();
-    matrix->real_width = input_width;
-    matrix->width = current_max_width;
-    matrix->height = input_height;
-    matrix->values = new float[current_max_width * input_height];
-    matrix->indices = new uint64_t[current_max_width * input_height];
+    uint64_t real_width = input_width;
+    uint64_t width = current_max_width;
+    uint64_t height = input_height;
+    float* values = new float[current_max_width * input_height];
+    uint64_t* indices = new uint64_t[current_max_width * input_height];
 
-    for (uint64_t run_row = 0; run_row < matrix->height; ++run_row) {
-        for (uint64_t run_col = 0; run_col < matrix->width; ++run_col) {
-            matrix->indices[run_row * matrix->width + run_col] = 0;
-            matrix->values[run_row * matrix->width + run_col] = 0;
+    for (uint64_t run_row = 0; run_row < height; ++run_row) {
+        for (uint64_t run_col = 0; run_col < width; ++run_col) {
+            indices[run_row * width + run_col] = 0;
+            values[run_row * width + run_col] = 0;
         }
     }
 
@@ -126,44 +125,46 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
         uint64_t new_col = 0;
         bool col_found = false;
 
-        for (uint64_t r_col = 0; r_col < matrix->width; ++r_col) {
-            if (matrix->values[row * matrix->width + r_col] == 0) {
+        for (uint64_t r_col = 0; r_col < width; ++r_col) {
+            if (values[row * width + r_col] == 0) {
                 new_col = r_col;
                 col_found = true;
                 break;
             }
         }
 
-        matrix->values[row * matrix->width + new_col] = value;
-        matrix->indices[row * matrix->width + new_col] = column;
+        values[row * width + new_col] = value;
+        indices[row * width + new_col] = column;
 
         ++line_count;
     }
 
     std::cout << "Ellpack format: " << std::endl;
-    for (uint64_t i = 0; i < matrix->height; ++i) {
-        for (uint64_t j = 0; j < matrix->real_width; ++j) {
-            std::cout << matrix->values[i * matrix->real_width + j] << " ";
+    for (uint64_t i = 0; i < height; ++i) {
+        for (uint64_t j = 0; j < real_width; ++j) {
+            std::cout << values[i * real_width + j] << " ";
         }
         std::cout << std::endl;
     }
 
     matrix_file.close();
-    return matrix;
-}
 
-int main(int argc, char** argv) {
-    EllpackMatrix* a = parse_matrix("a.mat");
 
     std::vector<double> b = {4.3, 5.0, 3.0};
-
     EllpackMatrix* result = new EllpackMatrix();
-    result->height = a->height;
-    float** r_values = new float*[a->height]();
-    uint64_t** r_indices = new uint64_t*[a->height]();
-    uint64_t* r_row_lengths = new uint64_t[a->height]();
-    float* r_row_values = new float[a->height]();
-    uint64_t* r_row_indices = new uint64_t[a->height]();
+    /*
+    uint64_t real_width;
+    uint64_t height;
+    uint64_t width;
+    float* values;
+    uint64_t* indices;*/
+
+    result->height = height;
+    float** r_values = new float*[height]();
+    uint64_t** r_indices = new uint64_t*[height]();
+    uint64_t* r_row_lengths = new uint64_t[height]();
+    float* r_row_values = new float[height]();
+    uint64_t* r_row_indices = new uint64_t[height]();
     uint64_t max_width = 0;
 
     if (!r_values || !r_indices || !r_row_lengths) {
@@ -176,12 +177,12 @@ int main(int argc, char** argv) {
         uint64_t b_column_i = 0;
         float res_sum = 0.0F;
 
-        while (a_column_i < a->width && b_column_i < b.size()) {
-            if (a->indices[r_row_i * a->width + a_column_i] == b_column_i) {
-                res_sum += a->values[r_row_i * a->width + a_column_i] * b[b_column_i];
+        while (a_column_i < width && b_column_i < b.size()) {
+            if (indices[r_row_i * width + a_column_i] == b_column_i) {
+                res_sum += values[r_row_i * width + a_column_i] * b[b_column_i];
                 a_column_i++;
                 b_column_i++;
-            } else if (a->indices[r_row_i * a->width + a_column_i] > b_column_i) {
+            } else if (indices[r_row_i * width + a_column_i] > b_column_i) {
                 b_column_i++;
             } else {
                 a_column_i++;
@@ -252,6 +253,13 @@ int main(int argc, char** argv) {
 
 
     std::cout << "[FREE] Freeing used memory ...\n";
+
+
+    return result;
+}
+
+int main(int argc, char** argv) {
+    EllpackMatrix* a = parse_matrix("a.mat");
 
     return 0;
 }
