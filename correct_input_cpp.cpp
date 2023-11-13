@@ -11,89 +11,7 @@ struct EllpackMatrix {
     uint64_t* indices;
 };
 
-void free_ellpack(EllpackMatrix* x) {
-    delete[] x->values;
-    delete[] x->indices;
-    delete x;
-}
-void matr_mult_ellpack(const void* a, std::vector<double> &b, void* result) {
-    EllpackMatrix* r = static_cast<EllpackMatrix*>(result);
-    const EllpackMatrix* ax = static_cast<const EllpackMatrix*>(a);
-    r->height = ax->height;
-    float** r_values = new float*[ax->height]();
-    uint64_t** r_indices = new uint64_t*[ax->height]();
-    uint64_t* r_row_lengths = new uint64_t[ax->height]();
-    float* r_row_values = new float[ax->height]();
-    uint64_t* r_row_indices = new uint64_t[ax->height]();
-    uint64_t max_width = 0;
 
-    if (!r_values || !r_indices || !r_row_lengths) {
-        r->height = 0;
-    }
-    std::vector<double> bx(b.begin(), b.end());
-
-    for (uint64_t r_row_i = 0; r_row_i < r->height; r_row_i++) {
-        uint64_t r_column_counter = 0;
-        uint64_t a_column_i = 0;
-        uint64_t b_column_i = 0;
-        float res_sum = 0.0F;
-
-        while (a_column_i < ax->width && b_column_i < bx.size()) {
-            if (ax->indices[r_row_i * ax->width + a_column_i] == b_column_i) {
-                res_sum += ax->values[r_row_i * ax->width + a_column_i] * bx[b_column_i];
-                a_column_i++;
-                b_column_i++;
-            } else if (ax->indices[r_row_i * ax->width + a_column_i] > b_column_i) {
-                b_column_i++;
-            } else {
-                a_column_i++;
-            }
-        }
-
-        if (res_sum != 0.0) {
-            r_row_values[r_column_counter] = res_sum;
-            r_column_counter++;
-        }
-
-        if (r_column_counter > max_width) {
-            max_width = r_column_counter;
-        }
-
-        r_values[r_row_i] = new float[r_column_counter]();
-        r_indices[r_row_i] = new uint64_t[r_column_counter]();
-
-        if (!r_values[r_row_i] || !r_indices[r_row_i]) {
-            r->height = r_row_i + 1;
-            break;
-        }
-
-        memcpy(r_values[r_row_i], r_row_values, sizeof(float) * r_column_counter);
-        memcpy(r_indices[r_row_i], r_row_indices, sizeof(uint64_t) * r_column_counter);
-        r_row_lengths[r_row_i] = r_column_counter;
-    }
-
-    r->width = max_width;
-
-    r->values = new float[r->height * r->width]();
-    r->indices = new uint64_t[r->height * r->width]();
-    if (r->values && r->indices) {
-        for (uint64_t x_row_i = 0; x_row_i < r->height; x_row_i++) {
-            memcpy(r->values + x_row_i * r->width, r_values[x_row_i], r_row_lengths[x_row_i] * sizeof(float));
-            memcpy(r->indices + x_row_i * r->width, r_indices[x_row_i], r_row_lengths[x_row_i] * sizeof(uint64_t));
-        }
-    }
-
-    for (uint64_t x_xow_i = 0; x_xow_i < r->height; x_xow_i++) {
-        delete[] r_values[x_xow_i];
-        delete[] r_indices[x_xow_i];
-    }
-    delete[] r_values;
-    delete[] r_indices;
-
-    delete[] r_row_values;
-    delete[] r_row_indices;
-    
-}
 
 
 
@@ -304,12 +222,84 @@ void write_matrix(EllpackMatrix* matrix, const char* out_path) {
 }
 
 int main(int argc, char** argv) {
-    EllpackMatrix* amatrix = parse_matrix("a.mat");
+    EllpackMatrix* a = parse_matrix("a.mat");
 
-    std::vector<double> bvector = {4.3, 5.0, 3.0};
+    std::vector<double> b = {4.3, 5.0, 3.0};
 
     EllpackMatrix* result = new EllpackMatrix();
-    matr_mult_ellpack(amatrix, bvector, result);
+    result->height = a->height;
+    float** r_values = new float*[a->height]();
+    uint64_t** r_indices = new uint64_t*[a->height]();
+    uint64_t* r_row_lengths = new uint64_t[a->height]();
+    float* r_row_values = new float[a->height]();
+    uint64_t* r_row_indices = new uint64_t[a->height]();
+    uint64_t max_width = 0;
+
+    if (!r_values || !r_indices || !r_row_lengths) {
+        result->height = 0;
+    }
+
+    for (uint64_t r_row_i = 0; r_row_i < result->height; r_row_i++) {
+        uint64_t r_column_counter = 0;
+        uint64_t a_column_i = 0;
+        uint64_t b_column_i = 0;
+        float res_sum = 0.0F;
+
+        while (a_column_i < a->width && b_column_i < b.size()) {
+            if (a->indices[r_row_i * a->width + a_column_i] == b_column_i) {
+                res_sum += a->values[r_row_i * a->width + a_column_i] * b[b_column_i];
+                a_column_i++;
+                b_column_i++;
+            } else if (a->indices[r_row_i * a->width + a_column_i] > b_column_i) {
+                b_column_i++;
+            } else {
+                a_column_i++;
+            }
+        }
+
+        if (res_sum != 0.0) {
+            r_row_values[r_column_counter] = res_sum;
+            r_column_counter++;
+        }
+
+        if (r_column_counter > max_width) {
+            max_width = r_column_counter;
+        }
+
+        r_values[r_row_i] = new float[r_column_counter]();
+        r_indices[r_row_i] = new uint64_t[r_column_counter]();
+
+        if (!r_values[r_row_i] || !r_indices[r_row_i]) {
+            result->height = r_row_i + 1;
+            break;
+        }
+
+        memcpy(r_values[r_row_i], r_row_values, sizeof(float) * r_column_counter);
+        memcpy(r_indices[r_row_i], r_row_indices, sizeof(uint64_t) * r_column_counter);
+        r_row_lengths[r_row_i] = r_column_counter;
+    }
+
+    result->width = max_width;
+
+    result->values = new float[result->height * result->width]();
+    result->indices = new uint64_t[result->height * result->width]();
+    if (result->values && result->indices) {
+        for (uint64_t x_row_i = 0; x_row_i < result->height; x_row_i++) {
+            memcpy(result->values + x_row_i * result->width, r_values[x_row_i], r_row_lengths[x_row_i] * sizeof(float));
+            memcpy(result->indices + x_row_i * result->width, r_indices[x_row_i], r_row_lengths[x_row_i] * sizeof(uint64_t));
+        }
+    }
+
+    for (uint64_t x_xow_i = 0; x_xow_i < result->height; x_xow_i++) {
+        delete[] r_values[x_xow_i];
+        delete[] r_indices[x_xow_i];
+    }
+    delete[] r_values;
+    delete[] r_indices;
+
+    delete[] r_row_values;
+    delete[] r_row_indices;
+ 
 
     write_matrix(result, "out1.mat");
 
