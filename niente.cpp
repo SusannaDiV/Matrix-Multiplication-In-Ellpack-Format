@@ -41,9 +41,38 @@ int main(int argc, char** argv) {
     }
     std::cout << "line count " << line_count << std::endl;
 
+
     uint64_t amatrix_max_width = 0;
     uint64_t amatrix_current_row = 0;
     uint64_t amatrix_count_used = 0;
+
+    
+    while (std::getline(amatrix_file, amatrix_line)) {
+        std::istringstream token_stream(amatrix_line);
+        std::string token;
+
+        std::getline(token_stream, token, ' ');
+        uint64_t amatrix_row = static_cast<uint64_t>(std::strtol(token.c_str(), const_cast<char**>(&end_ptr), 10));
+        std::getline(token_stream, token, ' ');
+        uint64_t amatrix_column = static_cast<uint64_t>(std::strtol(token.c_str(), const_cast<char**>(&end_ptr), 10));
+        if (amatrix_row > amatrix_current_row) {
+            amatrix_current_row = amatrix_row;
+            if (amatrix_max_width < amatrix_count_used) {
+                amatrix_max_width = amatrix_count_used;
+            }
+            amatrix_count_used = 0;
+        }
+
+        ++amatrix_count_used;
+    }
+
+    if (amatrix_max_width <= 0) {
+        amatrix_max_width = static_cast<uint64_t>(amatrix_width);
+    }
+
+    printf("[SCAN] Completed, Shrinking matrix width from %lu -> %lu\n", amatrix_width, amatrix_max_width);
+
+
 
     std::vector<float> amatrix_values(amatrix_width * amatrix_height, 0.0);
     std::vector<uint64_t> amatrix_indices(amatrix_width * amatrix_height, 0);
