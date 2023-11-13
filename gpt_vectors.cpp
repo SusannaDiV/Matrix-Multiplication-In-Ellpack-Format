@@ -5,7 +5,7 @@
 #include <cstring>
 
 void matr_mult_ellpack(uint64_t ax_width, uint64_t ax_height, float* ax_values, uint64_t* ax_indices,
-                       std::vector<double> &b, uint64_t& result_height, uint64_t& result_width,
+                       std::vector<double>& b, uint64_t& result_height, uint64_t& result_width,
                        float*& result_values, uint64_t*& result_indices) {
     result_height = ax_height;
     float** r_values = new float*[ax_height]();
@@ -20,11 +20,8 @@ void matr_mult_ellpack(uint64_t ax_width, uint64_t ax_height, float* ax_values, 
     }
     std::vector<double> bx(b.begin(), b.end());
 
-    bool exitLoop = false;
-
-#pragma omp parallel for default(none) shared(ax_width, ax_height, ax_values, ax_indices, bx, r_values, r_indices, r_row_lengths, r_row_values, r_row_indices, result_height, max_width, exitLoop) schedule(static)
-for (uint64_t r_row_i = 0; r_row_i < result_height; r_row_i++) {
-    if (!exitLoop) {
+    #pragma omp parallel for default(none) shared(ax_width, ax_height, ax_values, ax_indices, bx, r_values, r_indices, r_row_lengths, r_row_values, r_row_indices, result_height, max_width) schedule(static)
+    for (uint64_t r_row_i = 0; r_row_i < result_height; r_row_i++) {
         uint64_t r_column_counter = 0;
         uint64_t a_column_i = 0;
         uint64_t b_column_i = 0;
@@ -43,11 +40,8 @@ for (uint64_t r_row_i = 0; r_row_i < result_height; r_row_i++) {
         }
 
         if (res_sum != 0.0) {
-            #pragma omp critical
-            {
-                r_row_values[r_column_counter] = res_sum;
-                r_column_counter++;
-            }
+            r_row_values[r_column_counter] = res_sum;
+            r_column_counter++;
         }
 
         #pragma omp critical
@@ -63,7 +57,6 @@ for (uint64_t r_row_i = 0; r_row_i < result_height; r_row_i++) {
             r_indices[r_row_i] = new uint64_t[r_column_counter]();
             if (!r_values[r_row_i] || !r_indices[r_row_i]) {
                 result_height = r_row_i + 1;
-                exitLoop = true; // Set the flag to exit the loop
             }
         }
 
@@ -74,26 +67,18 @@ for (uint64_t r_row_i = 0; r_row_i < result_height; r_row_i++) {
             r_row_lengths[r_row_i] = r_column_counter;
         }
     }
-}
 
-if (exitLoop) {
-    for (uint64_t x_xow_i = 0; x_xow_i < result_height; x_xow_i++) {
-        delete[] r_values[x_xow_i];
-        delete[] r_indices[x_xow_i];
-    }
-    delete[] r_values;
-    delete[] r_indices;
-}
     result_width = max_width;
 
     result_values = new float[result_height * result_width]();
     result_indices = new uint64_t[result_height * result_width]();
-    if (result_values && result_indices) {
-        for (uint64_t x_row_i = 0; x_row_i < result_height; x_row_i++) {
-            memcpy(result_values + x_row_i * result_width, r_values[x_row_i], r_row_lengths[x_row_i] * sizeof(float));
-            memcpy(result_indices + x_row_i * result_width, r_indices[x_row_i], r_row_lengths[x_row_i] * sizeof(uint64_t));
-        }
+    #pragma omp parallel for default(none) shared(result_values, result_indices, r_values, r_indices, r_row_lengths, result_height, result_width) schedule(static)
+    for (uint64_t x_row_i = 0; x_row_i < result_height; x_row_i++) {
+        memcpy(result_values + x_row_i * result_width, r_values[x_row_i], r_row_lengths[x_row_i] * sizeof(float));
+        memcpy(result_indices + x_row_i * result_width, r_indices[x_row_i], r_row_lengths[x_row_i] * sizeof(uint64_t));
     }
+
+    #pragma omp parallel for default(none) shared(r_values, r_indices, result_height) schedule(static)
     for (uint64_t x_xow_i = 0; x_xow_i < result_height; x_xow_i++) {
         delete[] r_values[x_xow_i];
         delete[] r_indices[x_xow_i];
@@ -104,7 +89,6 @@ if (exitLoop) {
     delete[] r_row_values;
     delete[] r_row_indices;
 }
-
 #define CSV_LINE_LENGTH 61
 
 int skip_lines(std::ifstream& file, unsigned long long num) {
@@ -138,6 +122,10 @@ void write_matrix(uint64_t result_height, uint64_t result_width,
 
     out_file.close();
 }
+
+
+
+
 
 int main(int argc, char** argv) {
     std::ifstream amatrix_file("a.mat");
