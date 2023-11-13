@@ -140,14 +140,26 @@ int skip_lines(std::ifstream& file, unsigned long long num) {
 
 EllpackMatrix* parse_matrix(const char* matrix_path) {
     std::ifstream matrix_file(matrix_path);
+    std::string line;
     unsigned long long line_count = 0;
     const char* end_ptr;
     long width = 0;
-    long height,tot = 0;
+    long height = 0;
 
-    matrix_file >> height;
-    matrix_file >> width;
-    matrix_file >> tot;
+    while (std::getline(matrix_file, line)) {
+        if (line_count > 1) {
+            break;
+        } else if (line_count == 0) {
+            errno = 0;
+            height = std::strtol(line.c_str(), const_cast<char**>(&end_ptr), 10);
+        } else if (line_count == 1) {
+            errno = 0;
+            width = std::strtol(line.c_str(), const_cast<char**>(&end_ptr), 10);
+        }
+        ++line_count;
+    }
+
+    printf("[SCAN] Scanning matrix %s ...\n", matrix_path);
 
     std::string matrix_line;
 
@@ -160,9 +172,7 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
         std::string token;
 
         std::getline(token_stream, token, ';');
-        errno = 0;
-        long row_raw = std::strtol(token.c_str(), const_cast<char**>(&end_ptr), 10);
-        uint64_t row = static_cast<uint64_t>(row_raw);
+        uint64_t row = static_cast<uint64_t>(std::strtol(token.c_str(), const_cast<char**>(&end_ptr), 10));
 
         if (row > current_row) {
             current_row = row;
@@ -173,9 +183,7 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
         }
 
         std::getline(token_stream, token, ';');
-        errno = 0;
-        long column_raw = std::strtol(token.c_str(), const_cast<char**>(&end_ptr), 10);
-        uint64_t column = static_cast<uint64_t>(column_raw);
+        uint64_t column = static_cast<uint64_t>(std::strtol(token.c_str(), const_cast<char**>(&end_ptr), 10));
         ++count_used;
     }
 
@@ -207,17 +215,12 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
         std::istringstream token_stream(matrix_line);
         std::string token;
         std::getline(token_stream, token, ' ');
-        errno = 0;
-        long row_raw = std::strtol(token.c_str(), const_cast<char**>(&end_ptr), 10);
-        uint64_t row = static_cast<uint64_t>(row_raw);
+        uint64_t row = static_cast<uint64_t>(std::strtol(token.c_str(), const_cast<char**>(&end_ptr), 10));
 
         std::getline(token_stream, token, ' ');
-        errno = 0;
-        long column_raw = std::strtol(token.c_str(), const_cast<char**>(&end_ptr), 10);
-        uint64_t column = static_cast<uint64_t>(column_raw);
+        uint64_t column = static_cast<uint64_t>(std::strtol(token.c_str(), const_cast<char**>(&end_ptr), 10));
 
         std::getline(token_stream, token, ' ');
-        errno = 0;
         float value = std::strtof(token.c_str(), const_cast<char**>(&end_ptr));
 
         uint64_t new_col = 0;
@@ -234,7 +237,6 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
         matrix->values[row * matrix->width + new_col] = value;
         matrix->indices[row * matrix->width + new_col] = column;
 
-        ++line_count;
     }
 
     for (uint64_t i = 0; i < matrix->height; ++i) {
@@ -299,9 +301,6 @@ int main(int argc, char** argv) {
 
     EllpackMatrix* result = new EllpackMatrix();
     matr_mult_ellpack(amatrix, bvector, result);
-        for (int i = 0; i < result->height; ++i) {
-        std::cout << result->values[i] << std::endl;
-    }
 
     write_matrix(result, "out1.mat");
 
