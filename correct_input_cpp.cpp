@@ -12,31 +12,6 @@ struct EllpackMatrix {
 };
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#define CSV_LINE_LENGTH 61
-
 int skip_lines(std::ifstream& file, unsigned long long num) {
     std::string line;
     for (unsigned long long run = 0; run < num; ++run) {
@@ -52,18 +27,18 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
     std::string line;
     unsigned long long line_count = 0;
     const char* end_ptr;
-    long width = 0;
-    long height = 0;
+    long input_width = 0;
+    long input_height = 0;
 
     while (std::getline(matrix_file, line)) {
         if (line_count > 1) {
             break;
         } else if (line_count == 0) {
             errno = 0;
-            height = std::strtol(line.c_str(), const_cast<char**>(&end_ptr), 10);
+            input_height = std::strtol(line.c_str(), const_cast<char**>(&end_ptr), 10);
         } else if (line_count == 1) {
             errno = 0;
-            width = std::strtol(line.c_str(), const_cast<char**>(&end_ptr), 10);
+            input_width = std::strtol(line.c_str(), const_cast<char**>(&end_ptr), 10);
         }
         ++line_count;
     }
@@ -73,7 +48,7 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
     std::string matrix_line;
     line_count = 4;
 
-    uint64_t max_width = 0;
+    uint64_t current_max_width = 0;
     uint64_t current_row = 0;
     uint64_t count_used = 0;
 
@@ -88,8 +63,8 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
 
         if (row > current_row) {
             current_row = row;
-            if (max_width < count_used) {
-                max_width = count_used;
+            if (current_max_width < count_used) {
+                current_max_width = count_used;
             }
             count_used = 0;
         }
@@ -102,19 +77,19 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
         ++line_count;
     }
 
-    if (max_width <= 0) {
-        max_width = static_cast<uint64_t>(width);
+    if (current_max_width <= 0) {
+        current_max_width = static_cast<uint64_t>(input_width);
     }
 
-    printf("[SCAN] Completed, Shrinking matrix width from %lu -> %lu\n", width, max_width);
-    printf("[INIT] Allocating %lu bytes of memory for matrix %s\n", (4 * max_width * height) + (8 * max_width * height), matrix_path);
+    printf("[SCAN] Completed, Shrinking matrix width from %lu -> %lu\n", input_width, current_max_width);
+    printf("[INIT] Allocating %lu bytes of memory for matrix %s\n", (4 * current_max_width * input_height) + (8 * current_max_width * input_height), matrix_path);
 
     EllpackMatrix* matrix = new EllpackMatrix();
-    matrix->real_width = width;
-    matrix->width = max_width;
-    matrix->height = height;
-    matrix->values = new float[max_width * height];
-    matrix->indices = new uint64_t[max_width * height];
+    matrix->real_width = input_width;
+    matrix->width = current_max_width;
+    matrix->height = input_height;
+    matrix->values = new float[current_max_width * input_height];
+    matrix->indices = new uint64_t[current_max_width * input_height];
 
     for (uint64_t run_row = 0; run_row < matrix->height; ++run_row) {
         for (uint64_t run_col = 0; run_col < matrix->width; ++run_col) {
@@ -176,30 +151,6 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
     matrix_file.close();
     return matrix;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 int main(int argc, char** argv) {
     EllpackMatrix* a = parse_matrix("a.mat");
