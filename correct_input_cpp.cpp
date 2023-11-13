@@ -11,16 +11,6 @@ struct EllpackMatrix {
     uint64_t* indices;
 };
 
-EllpackMatrix* make_ellpack(uint64_t real_width, uint64_t height, uint64_t width) {
-    EllpackMatrix* ellpack = new EllpackMatrix();
-    ellpack->real_width = real_width;
-    ellpack->width = width;
-    ellpack->height = height;
-    ellpack->values = new float[width * height];
-    ellpack->indices = new uint64_t[width * height];
-    return ellpack;
-}
-
 void free_ellpack(EllpackMatrix* x) {
     delete[] x->values;
     delete[] x->indices;
@@ -92,6 +82,7 @@ void matr_mult_ellpack(const void* a, std::vector<double> &b, void* result) {
             memcpy(r->indices + x_row_i * r->width, r_indices[x_row_i], r_row_lengths[x_row_i] * sizeof(uint64_t));
         }
     }
+
     for (uint64_t x_xow_i = 0; x_xow_i < r->height; x_xow_i++) {
         delete[] r_values[x_xow_i];
         delete[] r_indices[x_xow_i];
@@ -200,8 +191,12 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
     printf("[SCAN] Completed, Shrinking matrix width from %lu -> %lu\n", width, max_width);
     printf("[INIT] Allocating %lu bytes of memory for matrix %s\n", (4 * max_width * height) + (8 * max_width * height), matrix_path);
 
-    EllpackMatrix* matrix = make_ellpack(static_cast<uint64_t>(width), static_cast<uint64_t>(height), max_width);
-
+    EllpackMatrix* matrix = new EllpackMatrix();
+    matrix->real_width = width;
+    matrix->width = max_width;
+    matrix->height = height;
+    matrix->values = new float[max_width * height];
+    matrix->indices = new uint64_t[max_width * height];
 
     for (uint64_t run_row = 0; run_row < matrix->height; ++run_row) {
         for (uint64_t run_col = 0; run_col < matrix->width; ++run_col) {
@@ -252,6 +247,7 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
         ++line_count;
     }
 
+    std::cout << "Ellpack format: " << std::endl;
     for (uint64_t i = 0; i < matrix->height; ++i) {
         for (uint64_t j = 0; j < matrix->real_width; ++j) {
             std::cout << matrix->values[i * matrix->real_width + j] << " ";
