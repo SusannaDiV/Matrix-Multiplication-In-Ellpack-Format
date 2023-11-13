@@ -201,26 +201,6 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
 
 
 
-void write_matrix(EllpackMatrix* matrix, const char* out_path) {
-    std::ofstream out_file(out_path);
-    // Print the matrix in reduced coordinate schema
-    for (uint64_t run_row = 0; run_row < matrix->height; ++run_row) {
-        for (uint64_t run_col = 0; run_col < matrix->width; ++run_col) {
-            uint64_t index_entry = matrix->indices[run_row * matrix->width + run_col];
-            float value_entry = matrix->values[run_row * matrix->width + run_col];
-            if (value_entry != 0) {
-                uint64_t real_column = index_entry;
-                out_file << run_row << ' ' << real_column << ' ' << std::scientific << value_entry;
-                if (run_row < (matrix->height - 1) || run_col < (matrix->width - 1)) {
-                    out_file << '\n';
-                }
-            }
-        }
-    }
-
-    out_file.close();
-}
-
 int main(int argc, char** argv) {
     EllpackMatrix* a = parse_matrix("a.mat");
 
@@ -301,7 +281,24 @@ int main(int argc, char** argv) {
     delete[] r_row_indices;
  
 
-    write_matrix(result, "out1.mat");
+        std::ofstream out_file("a.mat");
+    // Print the result in reduced coordinate schema
+    for (uint64_t run_row = 0; run_row < result->height; ++run_row) {
+        for (uint64_t run_col = 0; run_col < result->width; ++run_col) {
+            uint64_t index_entry = result->indices[run_row * result->width + run_col];
+            float value_entry = result->values[run_row * result->width + run_col];
+            if (value_entry != 0) {
+                uint64_t real_column = index_entry;
+                out_file << run_row << ' ' << real_column << ' ' << std::scientific << value_entry;
+                if (run_row < (result->height - 1) || run_col < (result->width - 1)) {
+                    out_file << '\n';
+                }
+            }
+        }
+    }
+
+    out_file.close();
+
 
     std::cout << "[FREE] Freeing used memory ...\n";
 
