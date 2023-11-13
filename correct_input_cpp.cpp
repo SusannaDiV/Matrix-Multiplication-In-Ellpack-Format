@@ -152,12 +152,7 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
 
     std::vector<double> b = {4.3, 5.0, 3.0};
     EllpackMatrix* result = new EllpackMatrix();
-    /*
-    uint64_t real_width;
-    uint64_t height;
-    uint64_t width;
-    float* values;
-    uint64_t* indices;*/
+    std::vector<double> resultvec (0, height);
 
     result->height = height;
     float** r_values = new float*[height]();
@@ -169,8 +164,52 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
 
     if (!r_values || !r_indices || !r_row_lengths) {
         result->height = 0;
+        resultvec.clear();
+    }
+//vector
+for (uint64_t r_row_i = 0; r_row_i < resultvec.size(); r_row_i++) {
+        uint64_t r_column_counter = 0;
+        uint64_t a_column_i = 0;
+        uint64_t b_column_i = 0;
+        float res_sum = 0.0F;
+
+        while (a_column_i < width && b_column_i < b.size()) {
+            if (indices[r_row_i * width + a_column_i] == b_column_i) {
+                res_sum += values[r_row_i * width + a_column_i] * b[b_column_i];
+                a_column_i++;
+                b_column_i++;
+            } else if (indices[r_row_i * width + a_column_i] > b_column_i) {
+                b_column_i++;
+            } else {
+                a_column_i++;
+            }
+        }
+
+        if (res_sum != 0.0) {
+            r_row_values[r_column_counter] = res_sum;
+            r_column_counter++;
+        }
+
+        if (r_column_counter > max_width) {
+            max_width = r_column_counter;
+        }
+
+        r_values[r_row_i] = new float[r_column_counter]();
+        r_indices[r_row_i] = new uint64_t[r_column_counter]();
+
+        if (!r_values[r_row_i] || !r_indices[r_row_i]) {
+            resultvec.resize(r_row_i + 1);
+            break;
+        }
+
+        memcpy(r_values[r_row_i], r_row_values, sizeof(float) * r_column_counter);
+        memcpy(r_indices[r_row_i], r_row_indices, sizeof(uint64_t) * r_column_counter);
+        r_row_lengths[r_row_i] = r_column_counter;
     }
 
+
+
+//ellpack
     for (uint64_t r_row_i = 0; r_row_i < result->height; r_row_i++) {
         uint64_t r_column_counter = 0;
         uint64_t a_column_i = 0;
@@ -211,6 +250,26 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
         r_row_lengths[r_row_i] = r_column_counter;
     }
 
+    //vector
+    /*
+        uint64_t real_width;
+    uint64_t height;
+    uint64_t width;
+    float* values;
+     indices;*/
+    
+    uint64_t resultvecwidth = max_width;
+
+    float* resultvecvalues = new float[resultvec.size() * resultvecwidth]();
+    uint64_t* resultvecindices = new uint64_t[resultvec.size() * resultvecwidth]();
+    if (resultvecvalues && resultvecindices) {
+        for (uint64_t x_row_i = 0; x_row_i < resultvec.size(); x_row_i++) {
+            memcpy(resultvecvalues + x_row_i * resultvecwidth, r_values[x_row_i], r_row_lengths[x_row_i] * sizeof(float));
+            memcpy(resultvecindices + x_row_i * resultvecwidth, r_indices[x_row_i], r_row_lengths[x_row_i] * sizeof(uint64_t));
+        }
+    }
+    //ellpack
+
     result->width = max_width;
 
     result->values = new float[result->height * result->width]();
@@ -232,7 +291,26 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
     delete[] r_row_values;
     delete[] r_row_indices;
  
+//vector
+ std::ofstream out_file2("out2.mat");
+    // Print the result in reduced coordinate schema
+    for (uint64_t run_row = 0; run_row < resultvec.size(); ++run_row) {
+        for (uint64_t run_col = 0; run_col < resultvecwidth; ++run_col) {
+            uint64_t index_entry = resultvecindices[run_row * resultvecwidth + run_col];
+            float value_entry = resultvecvalues[run_row * resultvecwidth + run_col];
+            if (value_entry != 0) {
+                uint64_t real_column = index_entry;
+                out_file2 << run_row << ' ' << real_column << ' ' << std::scientific << value_entry;
+                if (run_row < (resultvec.size() - 1) || run_col < (resultvecwidth - 1)) {
+                    out_file2 << '\n';
+                }
+            }
+        }
+    }
 
+    out_file2.close();
+
+//ellpack
         std::ofstream out_file("out1.mat");
     // Print the result in reduced coordinate schema
     for (uint64_t run_row = 0; run_row < result->height; ++run_row) {
