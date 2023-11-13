@@ -139,6 +139,45 @@ void write_matrix(uint64_t result_height, uint64_t result_width,
     out_file.close();
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 int main(int argc, char** argv) {
     std::ifstream amatrix_file("a.mat");
     std::string amatrix_line;
@@ -147,13 +186,8 @@ int main(int argc, char** argv) {
     long amatrix_width = 0;
     long amatrix_height = 0;
     long tot=0;
-/*
-    std::getline(amatrix_file, amatrix_line);
-    std::istringstream dim_stream(amatrix_line);
-    dim_stream >> amatrix_height >> amatrix_width >> tot;
-    std::cout << "hieght: " << amatrix_height << std::endl;
-    std::cout << "width: " << amatrix_width << std::endl;
-*/
+
+
     while (std::getline(amatrix_file, amatrix_line)) {
         if (line_count > 1) {
             break;
@@ -218,7 +252,7 @@ int main(int argc, char** argv) {
     // Go to start of file (after height and width declarations)
     amatrix_file.clear();
     amatrix_file.seekg(0, std::ios::beg);
-    int skr = skip_lines(amatrix_file, 3);
+    int skr = skip_lines(amatrix_file, 2);
     line_count = 3;
 
     while (std::getline(amatrix_file, amatrix_line)) {
