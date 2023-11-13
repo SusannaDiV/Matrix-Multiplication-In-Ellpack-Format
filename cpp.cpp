@@ -21,6 +21,11 @@ EllpackMatrix* make_ellpack(uint64_t real_width, uint64_t height, uint64_t width
     return ellpack;
 }
 
+void free_ellpack(EllpackMatrix* x) {
+    delete[] x->values;
+    delete[] x->indices;
+    delete x;
+}
 void matr_mult_ellpack(const void* a, std::vector<double> &b, void* result) {
     EllpackMatrix* r = static_cast<EllpackMatrix*>(result);
     const EllpackMatrix* ax = static_cast<const EllpackMatrix*>(a);
@@ -87,7 +92,6 @@ void matr_mult_ellpack(const void* a, std::vector<double> &b, void* result) {
             memcpy(r->indices + x_row_i * r->width, r_indices[x_row_i], r_row_lengths[x_row_i] * sizeof(uint64_t));
         }
     }
-
     for (uint64_t x_xow_i = 0; x_xow_i < r->height; x_xow_i++) {
         delete[] r_values[x_xow_i];
         delete[] r_indices[x_xow_i];
@@ -158,7 +162,6 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
     printf("[SCAN] Scanning matrix %s ...\n", matrix_path);
 
     std::string matrix_line;
-    line_count = 4;
 
     uint64_t max_width = 0;
     uint64_t current_row = 0;
@@ -186,7 +189,6 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
         long column_raw = std::strtol(token.c_str(), const_cast<char**>(&end_ptr), 10);
         uint64_t column = static_cast<uint64_t>(column_raw);
         ++count_used;
-        ++line_count;
     }
 
     if (max_width <= 0) {
@@ -211,8 +213,7 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
     // Go to start of file (after height and width declarations)
     matrix_file.clear();
     matrix_file.seekg(0, std::ios::beg);
-    int skr = skip_lines(matrix_file, 3);
-    line_count = 3;
+    int skr = skip_lines(matrix_file, 2);
 
     while (std::getline(matrix_file, matrix_line)) {
         std::istringstream token_stream(matrix_line);
@@ -304,15 +305,16 @@ void write_matrix(EllpackMatrix* matrix, const char* out_path) {
 }
 
 int main(int argc, char** argv) {
-    EllpackMatrix* amatrix = parse_matrix("a.mat");
+    EllpackMatrix* amatrix = parse_matrix("aoriignale.mat");
 
     std::vector<double> bvector = {4.3, 5.0, 3.0};
 
     EllpackMatrix* result = new EllpackMatrix();
     matr_mult_ellpack(amatrix, bvector, result);
-    for (int i = 0; i < result->height; ++i) {
+        for (int i = 0; i < result->height; ++i) {
         std::cout << result->values[i] << std::endl;
     }
+
     write_matrix(result, "out1.mat");
 
     std::cout << "[FREE] Freeing used memory ...\n";
