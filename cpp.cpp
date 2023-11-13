@@ -140,17 +140,33 @@ int skip_lines(std::ifstream& file, unsigned long long num) {
 
 EllpackMatrix* parse_matrix(const char* matrix_path) {
     std::ifstream matrix_file(matrix_path);
+    if (!matrix_file.is_open()) {
+        std::cerr << "Error: Unable to open matrix file " << matrix_path << std::endl;
+        return nullptr;
+    }
+
     std::string line;
     unsigned long long line_count = 0;
     const char* end_ptr;
-    long width = 0;
     long height = 0;
+    long width = 0;
+    long tot = 0;
 
-    std::getline(matrix_file, line);
-    height = std::strtol(line.c_str(), const_cast<char**>(&end_ptr), 10);
-    std::getline(matrix_file, line);        
-    width = std::strtol(line.c_str(), const_cast<char**>(&end_ptr), 10);
-    
+    // Read the first line and extract three values
+    if (std::getline(matrix_file, line)) {
+        std::istringstream token_stream(line);
+        token_stream >> height >> width >> tot;
+        if (token_stream.fail()) {
+            std::cerr << "Error: Unable to parse values from the first line." << std::endl;
+            matrix_file.close();
+            return nullptr;
+        }
+    } else {
+        std::cerr << "Error: Unable to read the first line from the matrix file." << std::endl;
+        matrix_file.close();
+        return nullptr;
+    }
+
     printf("[SCAN] Scanning matrix %s ...\n", matrix_path);
 
     std::string matrix_line;
@@ -187,7 +203,11 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
     printf("[INIT] Allocating %lu bytes of memory for matrix %s\n", (4 * max_width * height) + (8 * max_width * height), matrix_path);
 
     EllpackMatrix* matrix = make_ellpack(static_cast<uint64_t>(width), static_cast<uint64_t>(height), max_width);
-
+    if (!matrix) {
+        std::cerr << "Error: Unable to allocate memory for matrix." << std::endl;
+        matrix_file.close();
+        return nullptr;
+    }
 
     for (uint64_t run_row = 0; run_row < matrix->height; ++run_row) {
         for (uint64_t run_col = 0; run_col < matrix->width; ++run_col) {
@@ -198,10 +218,10 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
 
     printf("[INIT] Reading data of matrix %s into memory\n", matrix_path);
 
-    // Go to start of file (after height and width declarations)
+    // Go to start of file (after height, width, and tot declarations)
     matrix_file.clear();
     matrix_file.seekg(0, std::ios::beg);
-    int skr = skip_lines(matrix_file, 2);
+    int skr = skip_lines(matrix_file, 1);
 
     while (std::getline(matrix_file, matrix_line)) {
         std::istringstream token_stream(matrix_line);
@@ -241,6 +261,7 @@ EllpackMatrix* parse_matrix(const char* matrix_path) {
     matrix_file.close();
     return matrix;
 }
+
 
 
 
