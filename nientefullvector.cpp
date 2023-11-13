@@ -45,7 +45,7 @@ int main(int argc, char** argv) {
     uint64_t amatrix_current_row = 0;
     uint64_t amatrix_count_used = 0;
 
-    std::vector<std::vector<float>> amatrix_values(amatrix_height, std::vector<float>(amatrix_width, 0));
+    std::vector<std::vector<double>> amatrix_values(amatrix_height, std::vector<double>(amatrix_width, 0));
     std::vector<std::vector<uint64_t>> amatrix_indices(amatrix_height, std::vector<uint64_t>(amatrix_width, 0));
 
     while (std::getline(amatrix_file, amatrix_line)) {
@@ -74,10 +74,8 @@ int main(int argc, char** argv) {
     printf("[SCAN] Completed, Shrinking matrix width from %lu -> %lu\n", amatrix_width, amatrix_max_width);
 
     // Initialize vectors
-    std::vector<float> amatrix_values_flat(amatrix_width * amatrix_height, 0);
+    std::vector<double> amatrix_values_flat(amatrix_max_width * amatrix_height, 0);
     std::vector<uint64_t> amatrix_indices_flat(amatrix_width * amatrix_height, 0);
-
-    printf("[INIT] Reading data of matrix a.mat into memory\n");
 
     // Go to start of file (after height and width declarations)
     amatrix_file.clear();
@@ -94,7 +92,7 @@ int main(int argc, char** argv) {
         uint64_t amatrix_column = static_cast<uint64_t>(std::strtol(token.c_str(), const_cast<char**>(&end_ptr), 10));
 
         std::getline(token_stream, token, ' ');
-        float amatrix_value = std::strtof(token.c_str(), const_cast<char**>(&end_ptr));
+        double amatrix_value = std::strtof(token.c_str(), const_cast<char**>(&end_ptr));
 
         uint64_t new_col = 0;
         bool col_found = false;
@@ -111,20 +109,12 @@ int main(int argc, char** argv) {
         amatrix_indices_flat[amatrix_row * amatrix_width + new_col] = amatrix_column;
     }
 
-    std::cout << "[PRINT] Content of amatrix_indices:\n";
-    for (uint64_t run_row = 0; run_row < amatrix_height; ++run_row) {
-        for (uint64_t run_col = 0; run_col < amatrix_width; ++run_col) {
-            std::cout << amatrix_indices_flat[run_row * amatrix_width + run_col] << " ";
-        }
-        std::cout << "\n";
-    }
-
     std::vector<double> bvector = {4.3, 5.0, 3.0};
 
-    std::vector<std::vector<float>> r_values(amatrix_height, std::vector<float>());
+    std::vector<std::vector<double>> r_values(amatrix_height, std::vector<double>());
     std::vector<std::vector<uint64_t>> r_indices(amatrix_height, std::vector<uint64_t>());
     std::vector<uint64_t> r_row_lengths(amatrix_height, 0);
-    std::vector<float> r_row_values(amatrix_height, 0);
+    std::vector<double> r_row_values(amatrix_height, 0);
     std::vector<uint64_t> r_row_indices(amatrix_height, 0);
     uint64_t max_width = 0;
 
@@ -137,7 +127,7 @@ int main(int argc, char** argv) {
         uint64_t r_column_counter = 0;
         uint64_t a_column_i = 0;
         uint64_t b_column_i = 0;
-        float res_sum = 0.0F;
+        double res_sum = 0.0F;
 
         while (a_column_i < amatrix_width && b_column_i < bvector.size()) {
             if (amatrix_indices_flat[r_row_i * amatrix_width + a_column_i] == b_column_i) {
@@ -176,7 +166,7 @@ int main(int argc, char** argv) {
 
     uint64_t result_height = amatrix_height;
 
-    std::vector<std::vector<float>> result_values(result_height, std::vector<float>(max_width, 0));
+    std::vector<std::vector<double>> result_values(result_height, std::vector<double>(max_width, 0));
     std::vector<std::vector<uint64_t>> result_indices(result_height, std::vector<uint64_t>(max_width, 0));
 
     if (!result_values.empty() && !result_indices.empty()) {

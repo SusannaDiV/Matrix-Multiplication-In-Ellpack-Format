@@ -3,8 +3,10 @@
 #include <sstream>
 #include <vector>
 #include <cstring>
-
-#define CSV_LINE_LENGTH 61
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <vector>
 
 int skip_lines(std::ifstream& file, unsigned long long num) {
     std::string line;
@@ -16,93 +18,66 @@ int skip_lines(std::ifstream& file, unsigned long long num) {
     return 0;
 }
 
-int main(int argc, char** argv) {
+int main() {
     std::ifstream amatrix_file("a.mat");
     std::string amatrix_line;
     unsigned long long line_count = 0;
     const char* end_ptr;
     long amatrix_width = 0;
     long amatrix_height = 0;
-    long tot = 0;
+    long numNonZero = 0;
 
-    while (std::getline(amatrix_file, amatrix_line)) {
-        if (line_count > 1) {
-            break;
-        } else if (line_count == 0) {
-            errno = 0;
-            amatrix_height = std::strtol(amatrix_line.c_str(), const_cast<char**>(&end_ptr), 10);
-            std::cout << "height: " << amatrix_height << std::endl;
-        } else if (line_count == 1) {
-            errno = 0;
-            amatrix_width = std::strtol(amatrix_line.c_str(), const_cast<char**>(&end_ptr), 10);
-            std::cout << "width: " << amatrix_width << std::endl;
-        }
-        ++line_count;
-    }
-    std::cout << "line count " << line_count << std::endl;
+    amatrix_file >> amatrix_width >> amatrix_height >> numNonZero;
 
+    printf("[INFO] Matrix dimensions: %lu x %lu, Non-zero elements: %lu\n", amatrix_height, amatrix_width, numNonZero);
 
-    uint64_t amatrix_max_width = 0;
-    uint64_t amatrix_current_row = 0;
-    uint64_t amatrix_count_used = 0;
+    std::vector<std::vector<float>> amatrix_values(amatrix_height);
+    std::vector<std::vector<uint64_t>> amatrix_indices(amatrix_height);
 
-    
-    while (std::getline(amatrix_file, amatrix_line)) {
-        std::istringstream token_stream(amatrix_line);
-        std::string token;
-
-        std::getline(token_stream, token, ' ');
-        uint64_t amatrix_row = static_cast<uint64_t>(std::strtol(token.c_str(), const_cast<char**>(&end_ptr), 10));
-        std::getline(token_stream, token, ' ');
-        uint64_t amatrix_column = static_cast<uint64_t>(std::strtol(token.c_str(), const_cast<char**>(&end_ptr), 10));
-        if (amatrix_row > amatrix_current_row) {
-            amatrix_current_row = amatrix_row;
-            if (amatrix_max_width < amatrix_count_used) {
-                amatrix_max_width = amatrix_count_used;
-            }
-            amatrix_count_used = 0;
-        }
-
-        ++amatrix_count_used;
+    for (uint64_t i = 0; i < amatrix_height; ++i) {
+        amatrix_values[i].resize(numNonZero, 0.0);
+        amatrix_indices[i].resize(numNonZero, 0);
     }
 
-    if (amatrix_max_width <= 0) {
-        amatrix_max_width = static_cast<uint64_t>(amatrix_width);
-    }
-
-    printf("[SCAN] Completed, Shrinking matrix width from %lu -> %lu\n", amatrix_width, amatrix_max_width);
-    std::vector<float> amatrix_values(amatrix_width * amatrix_height, 0.0);
-    std::vector<uint64_t> amatrix_indices(amatrix_width * amatrix_height, 0);
-    amatrix_file.clear();
-    amatrix_file.seekg(0, std::ios::beg);
-    int skr = skip_lines(amatrix_file, 2);
+    printf("[SCAN] Completed, Initializing matrix...\n");
 
     while (std::getline(amatrix_file, amatrix_line)) {
         std::istringstream token_stream(amatrix_line);
         std::string token;
-        std::getline(token_stream, token, ' ');
-        uint64_t amatrix_row = static_cast<uint64_t>(std::strtol(token.c_str(), const_cast<char**>(&end_ptr), 10));
-
+        
         std::getline(token_stream, token, ' ');
         uint64_t amatrix_column = static_cast<uint64_t>(std::strtol(token.c_str(), const_cast<char**>(&end_ptr), 10));
+
+        std::getline(token_stream, token, ' ');
+        uint64_t amatrix_row = static_cast<uint64_t>(std::strtol(token.c_str(), const_cast<char**>(&end_ptr), 10));
 
         std::getline(token_stream, token, ' ');
         float amatrix_value = std::strtof(token.c_str(), const_cast<char**>(&end_ptr));
 
-        uint64_t new_col = 0;
-        bool col_found = false;
+        // Adjust indices to 0-based
+        --amatrix_column;
+        --amatrix_row;
 
-        for (uint64_t r_col = 0; r_col < amatrix_width; ++r_col) {
-            if (amatrix_values[amatrix_row * amatrix_width + r_col] == 0) {
-                new_col = r_col;
-                col_found = true;
+        // Find the first available position
+        for (uint64_t i = 0; i < numNonZero; ++i) {
+            if (amatrix_values[amatrix_row][i] == 0) {
+                amatrix_values[amatrix_row][i] = amatrix_value;
+                amatrix_indices[amatrix_row][i] = amatrix_column;
                 break;
             }
         }
-
-        amatrix_values[amatrix_row * amatrix_width + new_col] = amatrix_value;
-        amatrix_indices[amatrix_row * amatrix_width + new_col] = amatrix_column;
     }
+
+    // Print the compressed matrix
+    printf("[PRINT] Content of compressed matrix:\n");
+    for (uint64_t i = 0; i < amatrix_height; ++i) {
+        printf("Row %lu: ", i);
+        for (uint64_t j = 0; j < numNonZero; ++j) {
+            printf("(%lu, %.2f) ", amatrix_indices[i][j], amatrix_values[i][j]);
+        }
+        printf("\n");
+    }
+
 
     std::vector<double> bvector = {4.3, 5.0, 3.0};
 

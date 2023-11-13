@@ -21,11 +21,6 @@ EllpackMatrix* make_ellpack(uint64_t real_width, uint64_t height, uint64_t width
     return ellpack;
 }
 
-void free_ellpack(EllpackMatrix* x) {
-    delete[] x->values;
-    delete[] x->indices;
-    delete x;
-}
 void matr_mult_ellpack(const void* a, std::vector<double> &b, void* result) {
     EllpackMatrix* r = static_cast<EllpackMatrix*>(result);
     const EllpackMatrix* ax = static_cast<const EllpackMatrix*>(a);
@@ -92,6 +87,7 @@ void matr_mult_ellpack(const void* a, std::vector<double> &b, void* result) {
             memcpy(r->indices + x_row_i * r->width, r_indices[x_row_i], r_row_lengths[x_row_i] * sizeof(uint64_t));
         }
     }
+
     for (uint64_t x_xow_i = 0; x_xow_i < r->height; x_xow_i++) {
         delete[] r_values[x_xow_i];
         delete[] r_indices[x_xow_i];
@@ -314,7 +310,9 @@ int main(int argc, char** argv) {
 
     EllpackMatrix* result = new EllpackMatrix();
     matr_mult_ellpack(amatrix, bvector, result);
-
+    for (int i = 0; i < result->height; ++i) {
+        std::cout << result->values[i] << std::endl;
+    }
     write_matrix(result, "out1.mat");
 
     std::cout << "[FREE] Freeing used memory ...\n";
